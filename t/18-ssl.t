@@ -46,6 +46,8 @@ my $ssl_cb = sub {
 };
 
 use_ok("Gearman::Client");
+use_ok("Gearman::Worker");
+
 subtest "client echo request", sub {
     my $client = _client();
     ok(my $sock = $client->_get_random_js_sock(), "get socket");
@@ -53,7 +55,6 @@ subtest "client echo request", sub {
 };
 
 subtest "worker echo request", sub {
-    use_ok("Gearman::Worker");
     my $worker = new_ok(
         "Gearman::Worker",
         [
