@@ -169,7 +169,7 @@ sub reset_abilities {
             or next;
 
         unless (_send($jss, $req)) {
-            $self->uncache_sock("js", "err_write_reset_abilities");
+            $self->uncache_sock($js, "err_write_reset_abilities");
         }
     } ## end foreach my $js (@{ $self->{...}})
 
@@ -258,6 +258,7 @@ sub work {
                     # gracefully.
                     exit(0);
                 } ## end if ($!{EPIPE} && $self...)
+
                 $self->uncache_sock($js, "grab_job_timeout");
                 delete $last_update_time{$js};
                 next;
