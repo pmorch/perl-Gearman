@@ -154,7 +154,6 @@ sub new {
     return $self;
 } ## end sub new
 
-
 =head2 reset_abilities
 
 tell all the jobservers that this worker can't do anything
@@ -169,31 +168,13 @@ sub reset_abilities {
             or next;
 
         unless (_send($jss, $req)) {
-            $self->uncache_sock($js, "err_write_reset_abilities");
+            $self->_uncache_sock($js, "err_write_reset_abilities");
         }
     } ## end foreach my $js (@{ $self->{...}})
 
     $self->{can}      = {};
     $self->{timeouts} = {};
 } ## end sub reset_abilities
-
-=head2 uncache_sock($ipport, $reason)
-
-close TCP connection
-
-=cut
-
-sub uncache_sock {
-    my ($self, $ipport, $reason) = @_;
-
-    # we can't reconnect as a child process, so all we can do is die and hope our
-    # parent process respawns us...
-    die "Error/timeout talking to gearman parent process: [$reason]"
-        if $self->{parent_pipe};
-
-    # normal case, we just close this TCP connection and we'll reconnect later.
-    delete $self->{sock_cache}{$ipport};
-} ## end sub uncache_sock
 
 =head2 work(%opts)
 
@@ -259,7 +240,7 @@ sub work {
                     exit(0);
                 } ## end if ($!{EPIPE} && $self...)
 
-                $self->uncache_sock($js, "grab_job_timeout");
+                $self->_uncache_sock($js, "grab_job_timeout");
                 delete $last_update_time{$js};
                 next;
             } ## end unless (_send($jss, $grab_req...))
@@ -271,7 +252,7 @@ sub work {
             my $timeout = $self->{parent_pipe} ? 5 : 0.50;
             unless (Gearman::Util::wait_for_readability($jss->fileno, $timeout))
             {
-                $self->uncache_sock($js, "grab_job_timeout");
+                $self->_uncache_sock($js, "grab_job_timeout");
                 delete $last_update_time{$js};
                 next;
             } ## end unless (Gearman::Util::wait_for_readability...)
@@ -281,7 +262,7 @@ sub work {
                 my $err;
                 $res = Gearman::Util::read_res_packet($jss, \$err);
                 unless ($res) {
-                    $self->uncache_sock($js, "read_res_error");
+                    $self->_uncache_sock($js, "read_res_error");
                     delete $last_update_time{$js};
                     next;
                 }
@@ -290,7 +271,7 @@ sub work {
             if ($res->{type} eq "no_job") {
                 unless (_send($jss, $presleep_req)) {
                     delete $last_update_time{$js};
-                    $self->uncache_sock($js, "write_presleep_error");
+                    $self->_uncache_sock($js, "write_presleep_error");
                 }
                 $last_update_time{$js} = time;
                 next;
@@ -298,6 +279,7 @@ sub work {
 
             unless ($res->{type} eq "job_assign") {
                 my $msg = "Uh, wasn't expecting a $res->{type} packet.";
+
                 #FIXME unreachable if block
                 if ($res->{type} eq "error") {
                     $msg .= " [${$res->{blobref}}]\n";
@@ -327,7 +309,7 @@ sub work {
                     = _rc("work_exception",
                     _join0($handle, Storable::nfreeze(\$err)));
                 unless (_send($jss, $exception_req)) {
-                    $self->uncache_sock($js, "write_res_error");
+                    $self->_uncache_sock($js, "write_res_error");
                     next;
                 }
             } ## end if (THROW_EXCEPTIONS &&...)
@@ -344,7 +326,7 @@ sub work {
             }
 
             unless (_send($jss, $work_req)) {
-                $self->uncache_sock($js, "write_res_error");
+                $self->_uncache_sock($js, "write_res_error");
                 next;
             }
 
@@ -482,7 +464,7 @@ sub _register_all {
             or next;
 
         unless (_send($jss, $req)) {
-            $self->uncache_sock($js, "write_register_func_error");
+            $self->_uncache_sock($js, "write_register_func_error");
         }
     } ## end foreach my $js (@{ $self->{...}})
 } ## end sub _register_all
@@ -546,6 +528,23 @@ sub _get_js_sock {
 
     return $sock;
 } ## end sub _get_js_sock
+
+# _uncache_sock($ipport, [$reason])
+#
+# close TCP connection
+#
+
+sub _uncache_sock {
+    my ($self, $ipport, $reason) = @_;
+
+    # we can't reconnect as a child process, so all we can do is die and hope our
+    # parent process respawns us...
+    die "Error/timeout talking to gearman parent process: [$reason]"
+        if $self->{parent_pipe};
+
+    # normal case, we just close this TCP connection and we'll reconnect later.
+    delete $self->{sock_cache}{$ipport};
+} ## end sub _uncache_sock
 
 #
 # _on_connect($sock)
