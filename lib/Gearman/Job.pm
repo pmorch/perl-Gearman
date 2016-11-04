@@ -6,7 +6,7 @@ use strict;
 use warnings;
 
 use Gearman::Util ();
-use Carp ();
+use Carp          ();
 
 =head1 NAME
 
@@ -25,18 +25,24 @@ use fields (
     'func',
     'argref',
     'handle',
-    'jss',    # job server's socket
+
+    # job server's socket
+    'jss',
+
+    # job server
+    'js',
 );
 
 sub new {
-    my ($class, $func, $argref, $handle, $jss) = @_;
-    my $self = $class;
-    $self = fields::new($class) unless ref $self;
+    my ($self, %arg) = @_;
+    unless (ref $self) {
+        $self = fields::new($self);
+    }
 
-    $self->{func}   = $func;
-    $self->{handle} = $handle;
-    $self->{argref} = $argref;
-    $self->{jss}    = $jss;
+    while(my ($k, $v) = each(%arg)) {
+      $self->{$k} = $v;
+    }
+
     return $self;
 } ## end sub new
 
