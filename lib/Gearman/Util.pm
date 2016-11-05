@@ -129,7 +129,8 @@ sub read_res_packet {
     IO::Handle::blocking($sock, 0);
 
     my $fileno = fileno($sock);
-    my $rin    = '';
+    defined($fileno) || return $err->("fileno returns undef");
+    my $rin = '';
     vec($rin, $fileno, 1) = 1;
 
     my $readlen = 12;
@@ -211,7 +212,7 @@ sub _read_sock {
     unless ($rv) {
         warn "   Read error: $!\n" if DEBUG;
         $! == EAGAIN && return;
-    } ## end unless ($rv)
+    }
 
     return (0, "read_error") unless defined $rv;
     return (0, "eof")        unless $rv;
